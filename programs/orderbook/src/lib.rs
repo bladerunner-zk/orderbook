@@ -18,4 +18,8 @@ pub mod orderbook {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::handler(ctx)
     }
+
+    pub fn initialize_market(ctx: Context<InitializeMarket>) -> Result<()> {
+        initialize_market::handler(ctx)
+    }
 }
