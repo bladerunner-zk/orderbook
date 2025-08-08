@@ -6,7 +6,6 @@ pub enum Side {
     Ask
 }
 
-
 #[account]
 #[derive(InitSpace)]
 pub struct Order {

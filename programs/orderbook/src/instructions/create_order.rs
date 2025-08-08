@@ -45,6 +45,7 @@ pub struct CreateOrder<'info> {
     pub order: Account<'info, Order>,
 
     #[account(
+        mut,
         associated_token::authority = payer,
         associated_token::mint = token_sell,
     )]
