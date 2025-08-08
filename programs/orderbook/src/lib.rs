@@ -19,6 +19,15 @@ pub mod orderbook {
         initialize::handler(ctx)
     }
 
+    pub fn create_order(
+        ctx: Context<CreateOrder>,
+        price: u64,
+        side: Side,
+        amount: u64,
+    ) -> Result<()> {
+        create_order::handler(ctx, price, side, amount)
+    }
+
     pub fn initialize_market(ctx: Context<InitializeMarket>) -> Result<()> {
         initialize_market::handler(ctx)
     }
