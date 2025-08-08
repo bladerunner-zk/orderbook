@@ -12,6 +12,6 @@ pub struct Order {
     pub index: u64,
     pub side: Side,
     pub user: Pubkey,
-    pub price: u64,
-    pub amount: u64,
+    pub price: u64, // token_buy amount expected in return
+    pub amount: u64, // token_sell amount
 }

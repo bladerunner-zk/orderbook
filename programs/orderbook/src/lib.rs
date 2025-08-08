@@ -31,4 +31,8 @@ pub mod orderbook {
     pub fn initialize_market(ctx: Context<InitializeMarket>) -> Result<()> {
         initialize_market::handler(ctx)
     }
+
+    pub fn fill_order(ctx: Context<FillOrder>, order_id: u64) -> Result<()> {
+        fill_order::handler(ctx, order_id)
+    }
 }
