@@ -49,7 +49,7 @@ describe("orderbook", () => {
         expect(market.bump).to.equal(values.marketBump);
     });
 
-    it("Creates order: sell token A", async () => {
+    it("Creates and fills order: sell token A for token B", async () => {
         const getTokenBalance = async(tokenAccount) => {
             let balance = (await provider.connection.getTokenAccountBalance(tokenAccount.address)).value;
             return balance.uiAmount * (10 ** balance.decimals);
@@ -105,9 +105,61 @@ describe("orderbook", () => {
         expect(order.amount.toNumber()).to.equal(amount.toNumber());
 
         const makerTokenABalanceAfterOrder = await getTokenBalance(values.maker.tokenAccountA);
-        console.log("Maker token A balance after order:", makerTokenABalanceAfterOrder);
+        // console.log("Maker token A balance after order:", makerTokenABalanceAfterOrder);
 
         expect(makerTokenABalanceAfterOrder).to.equal(makerTokenABalanceBeforeOrder - amount.toNumber());
-    });
 
+        /* logging
+            for (const user of [values.maker, values.taker]) {
+                let name = user === values.maker ? "maker" : "taker";
+                let balanceA = await getTokenBalance(user.tokenAccountA);
+                let balanceB = await getTokenBalance(user.tokenAccountB);
+
+                console.log(`${name} token A balance before fill order:`, balanceA);
+                console.log(`${name} token B balance before fill order:`, balanceB);
+            }
+        */
+
+        let takerTokenBBalanceBeforeFill = await getTokenBalance(values.taker.tokenAccountB);
+        let takerTokenABalanceBeforeFill = await getTokenBalance(values.taker.tokenAccountA);
+        let makerTokenBBalanceBeforeFill = await getTokenBalance(values.maker.tokenAccountB);
+
+        await program.methods
+            .fillOrder(order.index)
+            .accounts({
+                payer: values.taker.keypair.publicKey,
+                market: values.marketPda,
+                order: orderPda,
+                tokenSell: values.mintA,
+                tokenBuy: values.mintB,
+                payerTokenSellAccount: values.taker.tokenAccountA.address,
+                payerTokenBuyAccount: values.taker.tokenAccountB.address,
+                lockup: lockupPda,
+                counterparty: values.maker.keypair.publicKey,
+                counterpartyTokenAccount: values.maker.tokenAccountB.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+            })
+            .signers([values.taker.keypair])
+            .rpc();
+
+        /* logging
+            for (const user of [values.maker, values.taker]) {
+                let name = user === values.maker ? "maker" : "taker";
+                let balanceA = await getTokenBalance(user.tokenAccountA);
+                let balanceB = await getTokenBalance(user.tokenAccountB);
+        
+                console.log(`${name} token A balance after fill order:`, balanceA);
+                console.log(`${name} token B balance after fill order:`, balanceB);
+            }
+        */
+        let takerTokenBBalanceAfterOrder = await getTokenBalance(values.taker.tokenAccountB);
+        expect(takerTokenBBalanceAfterOrder).to.equal(takerTokenBBalanceBeforeFill - price.toNumber());
+
+        let takerTokenABalanceAfterOrder = await getTokenBalance(values.taker.tokenAccountA);
+        expect(takerTokenABalanceAfterOrder).to.equal(takerTokenABalanceBeforeFill + amount.toNumber());
+
+        let makerTokenBBalanceAfterOrder = await getTokenBalance(values.maker.tokenAccountB);
+        expect(makerTokenBBalanceAfterOrder).to.equal(makerTokenBBalanceBeforeFill + price.toNumber());
+    });
 });

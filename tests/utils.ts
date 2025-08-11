@@ -35,14 +35,19 @@ const createNewUserAccount = async (connection, wallet, mintA, mintB): Promise<U
     );
     await connection.requestAirdrop(keypair.publicKey, 2 * web3.LAMPORTS_PER_SOL);
 
-    await mintTo(
-        connection,
-        wallet.payer,
-        mintA,
-        tokenAccountA.address,
-        wallet.publicKey,
-        1000
-    );
+    for (const [mint, tokenAccount] of [
+        [mintA, tokenAccountA],
+        [mintB, tokenAccountB]
+    ]) {
+        await mintTo(
+            connection,
+            wallet.payer,
+            mint,
+            tokenAccount.address,
+            wallet.publicKey,
+            1000
+        );
+    }
 
     return {
         keypair,
