@@ -8,6 +8,24 @@ import { expect } from "chai";
 
 import { createTestValues, type TestValues, type User, } from './utils' 
 
+async function initializeMarket(
+    values: TestValues, 
+    provider: anchor.Provider, 
+    program: Program<Orderbook>
+) {
+    const { marketPda, mintA, mintB } = values;
+    await program.methods
+        .initializeMarket()
+        .accounts({
+            payer: provider.wallet.publicKey,
+            market: marketPda,
+            tokenA: mintA,
+            tokenB: mintB,
+            systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+}
+
 describe("orderbook", () => {
     // Configure the client to use the local cluster.
     anchor.setProvider(anchor.AnchorProvider.env());
@@ -21,16 +39,7 @@ describe("orderbook", () => {
     });
 
     it("Initializes a market", async () => {
-        await program.methods
-        .initializeMarket()
-        .accounts({
-            payer: provider.wallet.publicKey,
-            market: values.marketPda,
-            tokenA: values.mintA,
-            tokenB: values.mintB,
-            systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+        await initializeMarket(values, provider, program);
 
         // Fetch and check the market account
         const market = await program.account.market.fetch(values.marketPda);
@@ -38,5 +47,67 @@ describe("orderbook", () => {
         expect(market.tokenB.toBase58()).to.equal(values.mintB.toBase58());
         expect(market.orders.toNumber()).to.equal(0);
         expect(market.bump).to.equal(values.marketBump);
-  });
+    });
+
+    it("Creates order: sell token A", async () => {
+        const getTokenBalance = async(tokenAccount) => {
+            let balance = (await provider.connection.getTokenAccountBalance(tokenAccount.address)).value;
+            return balance.uiAmount * (10 ** balance.decimals);
+        }
+
+        const price = new BN(1000);
+        const side = { bid: {} };
+        const amount = new BN(10);
+
+        const makerTokenABalanceBeforeOrder = await getTokenBalance(values.maker.tokenAccountA);
+        console.log("Maker token A balance before order:", makerTokenABalanceBeforeOrder);
+
+        await initializeMarket(values, provider, program);
+
+        const market = await program.account.market.fetch(values.marketPda);
+        const orderIndex = market.orders.toNumber();
+
+        const [orderPda] = PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("order"),
+                values.marketPda.toBuffer(),
+                new BN(orderIndex).toArrayLike(Buffer, "le", 8),
+            ],
+            program.programId
+        );
+
+        const [lockupPda] = PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("lockup"),
+                orderPda.toBuffer(),
+            ],
+            program.programId
+        );
+
+        await program.methods.createOrder(price, side, amount)
+        .accounts({
+            payer: values.maker.keypair.publicKey,
+            market: values.marketPda,
+            tokenSell: values.mintA,
+            tokenBuy: values.mintB,
+            order: orderPda,
+            userTokenAccount: values.maker.tokenAccountA.address,
+            lockup: lockupPda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+        })
+        .signers([values.maker.keypair])
+        .rpc();
+
+        const order = await program.account.order.fetch(orderPda);
+        expect(order.price.toNumber()).to.equal(price.toNumber());
+        expect(order.side).to.deep.equal(side);
+        expect(order.amount.toNumber()).to.equal(amount.toNumber());
+
+        const makerTokenABalanceAfterOrder = await getTokenBalance(values.maker.tokenAccountA);
+        console.log("Maker token A balance after order:", makerTokenABalanceAfterOrder);
+
+        expect(makerTokenABalanceAfterOrder).to.equal(makerTokenABalanceBeforeOrder - amount.toNumber());
+    });
+
 });

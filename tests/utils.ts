@@ -1,7 +1,8 @@
 import BN from 'bn.js';
 import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { type Account, TOKEN_PROGRAM_ID, createMint, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
-import { type Provider, type Program } from "@coral-xyz/anchor";
+import { type Provider, type Program, web3 } from "@coral-xyz/anchor";
+import { mintTo } from "@solana/spl-token";
 
 export interface TestValues {
     mintA: PublicKey;
@@ -18,20 +19,31 @@ export interface User {
     tokenAccountB: Account;
 }
 
-const createNewUserAccount = async (connection, payer, mintA, mintB): Promise<User> => {
+const createNewUserAccount = async (connection, wallet, mintA, mintB): Promise<User> => {
     const keypair = Keypair.generate();
     const tokenAccountA = await getOrCreateAssociatedTokenAccount(
         connection,
-        payer,
+        wallet.payer,
         mintA,
         keypair.publicKey
     );
     const tokenAccountB = await getOrCreateAssociatedTokenAccount(
         connection,
-        payer,
+        wallet.payer,
         mintB,
         keypair.publicKey
     );
+    await connection.requestAirdrop(keypair.publicKey, 2 * web3.LAMPORTS_PER_SOL);
+
+    await mintTo(
+        connection,
+        wallet.payer,
+        mintA,
+        tokenAccountA.address,
+        wallet.publicKey,
+        1000
+    );
+
     return {
         keypair,
         tokenAccountA,
@@ -63,8 +75,8 @@ export const createTestValues = async (
         6
     );
 
-    const maker = await createNewUserAccount(connection, wallet.payer, mintA, mintB);
-    const taker = await createNewUserAccount(connection, wallet.payer, mintA, mintB);
+    const maker = await createNewUserAccount(connection, wallet, mintA, mintB);
+    const taker = await createNewUserAccount(connection, wallet, mintA, mintB);
 
     const [marketPda, marketBump] = PublicKey.findProgramAddressSync(
         [
