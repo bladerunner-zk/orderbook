@@ -15,10 +15,6 @@ declare_id!("85f9vuQUP56MuuwDoPYuzHmhc2MjmN1rDvSJvfNAANFN");
 pub mod orderbook {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
-    }
-
     pub fn create_order(
         ctx: Context<CreateOrder>,
         price: u64,
